@@ -1,5 +1,7 @@
 from collections import deque
 import sys
+import random
+import time
 
 # Encodage des orientations
 # 0 = nord, 1 = est, 2 = sud, 3 = ouest
@@ -10,6 +12,12 @@ DIR_MAP = {
     "ouest": 3
 }
 
+INV_DIR_MAP = {
+    0 : "nord",
+    1 : "est",
+    2 : "sud",
+    3 : "ouest"
+}
 # Vecteurs de déplacement associés aux directions
 # 0=N, 1=E, 2=S, 3=O
 DR = [-1, 0, 1, 0]  # variation sur la ligne
@@ -73,6 +81,36 @@ def build_valid_positions(grid, M, N):
                 valid[r][c] = True
     return valid
 
+def generate_grid(N, M, nb_obs):
+    """Renvoie une grid sous forme liste de listes"""
+
+    grid = [[0 for _ in range(M)] for _ in range(N)]
+    obstacles = set()
+
+    while len(obstacles) < nb_obs:
+        x = random.randint(0, N-1)
+        y = random.randint(0, M-1)
+        if (x,y) not in obstacles :
+            obstacles.add((x, y))
+
+    for (x, y) in obstacles:
+        grid[x][y] = 1
+
+    ligne_fin = []
+
+    while True :
+        x_rob = random.randint(0, N-1)
+        y_rob = random.randint(0, M-1)
+        x_obs = random.randint(0, N-1)
+        y_obs = random.randint(0, M-1)
+        if (x_rob,y_rob) != (x_obs,y_obs) and (x_rob,y_rob) not in obstacles and (x_obs,y_obs) not in obstacles:
+            dir = random.randint(0, 3)
+            ligne_fin = [x_rob, y_rob, x_obs, y_obs, INV_DIR_MAP[dir]]
+            break
+
+    grid.append(ligne_fin)
+    grid.append([0,0])
+    return grid
 
 # =========================
 #  BFS sur l'espace d'états
@@ -160,6 +198,84 @@ def bfs(valid, M, N, start_r, start_c, start_dir, goal_r, goal_c):
 
     return len(actions), commands
 
+# =========================
+#  Fonctions de tests
+# =========================
+
+def test_temps_taille():
+    tailles = [10, 20, 30, 40, 50]
+    with open("grids.txt", "w") as f_grids, open("temps.txt", "w") as f_temps, open("res.txt", "w") as f_res:
+
+        for N in tailles:
+            nb_obstacles = N 
+            temps_exec = []
+
+            for _ in range(10):
+                grid = generate_grid(N, N, nb_obstacles)
+
+                f_grids.write(f"{N} {N}\n") # 1ère ligne
+                for ligne in grid:
+                    f_grids.write(" ".join(map(str, ligne)) + "\n") #Ecrit chaque ligne de la grid
+
+                t0 = time.perf_counter()
+
+                valid = build_valid_positions(grid, N, N)
+                D1, D2, F1, F2, orient_str = grid[-2]
+                start_dir = DIR_MAP[orient_str]
+                long, act = bfs(valid, N, N, D1, D2, start_dir, F1, F2)
+
+                t1 = time.perf_counter()
+                f_res.write(str(long) +" "+ " ".join(map(str,act)) + "\n")
+                temps_exec.append(t1 - t0)
+
+            moyenne = sum(temps_exec) / len(temps_exec)
+            f_temps.write(f"N={N} -> temps moyen = {moyenne:.6f} sec\n")
+                
+
+
+def exec(G):
+    data = G.strip().splitlines()
+    idx = 0
+
+    while idx < len(data):
+        line = data[idx].strip()
+        idx += 1
+        if not line:
+            continue
+
+        M, N = map(int, line.split())
+        if M == 0 and N == 0:
+            break
+
+        grid = []
+        for _ in range(M):
+            row = list(map(int, data[idx].split()))
+            idx += 1
+            grid.append(row)
+
+        parts = data[idx].split()
+        idx += 1
+
+        D1 = int(parts[0])
+        D2 = int(parts[1])
+        F1 = int(parts[2])
+        F2 = int(parts[3])
+        orient_str = parts[4].lower()
+        start_dir = DIR_MAP[orient_str]
+
+        # Construire les positions valides pour le centre du robot
+        valid = build_valid_positions(grid, M, N)
+
+        # Ici D1,D2,F1,F2 sont des coordonnées d'intersections (coins nord-ouest)
+        dist, cmds = bfs(valid, M, N, D1, D2, start_dir, F1, F2)
+
+        if dist == -1:
+            print(-1)
+        else:
+            if cmds:
+                print(dist, *cmds)
+            else:
+                print(0)
 
 def main():
     data = sys.stdin.read().strip().splitlines()
@@ -207,4 +323,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_temps_taille()

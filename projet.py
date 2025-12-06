@@ -2,6 +2,8 @@ from collections import deque
 import sys
 import random
 import time
+from gurobipy import Model, GRB
+import gurobipy as gp
 
 # Encodage des orientations
 # 0 = nord, 1 = est, 2 = sud, 3 = ouest
@@ -81,7 +83,7 @@ def build_valid_positions(grid, M, N):
                 valid[r][c] = True
     return valid
 
-def generate_grid(N, M, nb_obs):
+def generate_grid(M, N, nb_obs):
     """Renvoie une grid sous forme liste de listes"""
     grid = [[0 for _ in range(M)] for _ in range(N)]
     obstacles = set()
@@ -109,7 +111,7 @@ def generate_grid(N, M, nb_obs):
 
     grid.append(ligne_fin)
     grid.append([0,0])
-    return grid
+    return 
 
 def read_grid(filename):
     grid = []
@@ -117,7 +119,7 @@ def read_grid(filename):
         lines = [line.strip() for line in f.readlines() if line.strip()]
 
     N, M = map(int, lines[0].split())
-    grid.append([N, M])
+    grid.append([M, N])
 
     for i in range(1,M):
         ligne = list(map(int, lines[i].split()))
@@ -222,11 +224,47 @@ def bfs(valid, M, N, start_r, start_c, start_dir, goal_r, goal_c):
 
     return len(actions), commands
 
+
+def exec(grid, grid_file="grid.txt", res_file="res.txt"):
+    """
+    Execute l'algorithme de parcours en largeur sur la grille mis en argument.
+    Ecrit l'instance et les résultats dans les fichiers.
+    """
+    with open(grid_file, "w") as f_grid, open(res_file, "w") as f_res:
+
+        M, N  = grid[0]
+
+        print(grid)
+
+        for ligne in grid:
+            f_grid.write(" ".join(map(str, ligne)) + "\n")
+                
+        D1, D2, F1, F2, orient_str = grid[-2] # Obtention des positions objectifs et de départ
+        start_dir = DIR_MAP[orient_str]
+
+        # Construire les positions valides pour le centre du robot
+        valid = build_valid_positions(grid[1:-2], M, N)
+
+        # Ici D1,D2,F1,F2 sont des coordonnées d'intersections (coins nord-ouest)
+        dist, cmds = bfs(valid, M, N, D1, D2, start_dir, F1, F2)
+
+        if dist == -1:
+            print(-1)
+        else:
+            if cmds:
+                print(dist, *cmds)
+            else:
+                print(0)
+        f_res.write(str(dist) +" "+ " ".join(map(str,cmds)) + "\n")
+
 # =========================
 #  Fonctions de tests
 # =========================
 
 def test_temps_taille():
+    """
+    Test numérique de temps de calcul sur plusieurs tailles NxN différentes avec N obstacles.
+    """
     tailles = [10, 20, 30, 40, 50]
     with open("grids_taille.txt", "w") as f_grids, open("temps_taille.txt", "w") as f_temps, open("res_taille.txt", "w") as f_res:
 
@@ -256,6 +294,9 @@ def test_temps_taille():
             f_temps.write(f"{N}\t{moyenne:.6f}\n")
                 
 def test_temps_obstacle():
+    """
+    Test numérique de temps de calcul sur plusieurs nombre d'obstacles différents pour une grille 20x20.
+    """
     obs = [10, 20, 30, 40, 50]
     with open("grids_obstacle.txt", "w") as f_grids, open("temps_obstacle.txt", "w") as f_temps, open("res_obstacle.txt", "w") as f_res:
 
@@ -285,39 +326,78 @@ def test_temps_obstacle():
             moyenne = sum(temps_exec) / len(temps_exec)
             f_temps.write(f"{N}\t{moyenne:.6f}\n")
 
-def exec(grid, grid_file="grid.txt", res_file="res.txt"):
+# =========================
+#  Fonctions pour l'interface du programme linéaire
+# =========================
 
-    with open(grid_file, "w") as f_grid, open(res_file, "w") as f_res:
+def generate_value_grid(M, N):
+    """
+    Crée la grille de poids pour le PLNE
+    """
+    return [[random.randint(0,1000) for _ in range(M)] for _ in range(N)]
 
-        N, M  = grid[0]
+def plne(M, N, P, grid):
+    """
+    Programme linéaire permettant d'attribuer P obstacles de manière a minimiser la somme des poids,
+    en respectant les contraintes données.
+    """
+    m = Model()
+    x = {}
+    
+    #Création des variables binaires
+    for i in range(N):
+        for j in range(M):
+            x[i,j] = m.addVar(vtype=GRB.BINARY)
+    #Contrainte sur le nb d'obstacles dans une colonne
+    for i in range(N):
+        m.addConstr(gp.quicksum(x[i,j] for j in range(M)) <= (2*P)/M)
+    #Contrainte sur le nb d'obstacles dans une ligne
+    for j in range(M) :
+        m.addConstr(gp.quicksum(x[i,j] for i in range(N)) <= (2*P)/N)
+    #Contrainte 101 dans les lignes
+    for i in range(N):
+        for j in range(M-2):
+            m.addConstr(x[i,j] + x[i,j+2] <= 1 + x[i,j+1])
+    #Contrainte 101 dans les colonnes
+    for j in range(M):
+        for i in range(N-2):
+            m.addConstr(x[i,j] + x[i+2,j] <= 1 + x[i+1,j])
+    # Contrainte finale, il faut p obstacles et on met l'objectif de minimization
+    m.addConstr(gp.quicksum(x[i,j] for i in range(N) for j in range(M)) == P)
+    m.setObjective(gp.quicksum(grid[i][j] * x[i,j] for i in range(N) for j in range(M)))
 
-        print(grid)
+    m.optimize()
+    
+    return x
 
-        for ligne in grid:
-            f_grid.write(" ".join(map(str, ligne)) + "\n")
-                
-        D1, D2, F1, F2, orient_str = grid[-2] # Obtention des positions objectifs et de départ
-        start_dir = DIR_MAP[orient_str]
+def interface():
+    """
+    Interface permettant à l'utilisateur de fournir les données pour une instance,
+    laissant le programme linéaire placer les obstacles.
+    """
+    N = int(input("Nombre de lignes = "))
+    M = int(input("Nombre de colonnes = "))
+    P = int(input("Nombre d'obstacles = "))
 
-        # Construire les positions valides pour le centre du robot
-        valid = build_valid_positions(grid[1:-2], N, M)
+    grid = [[0 for _ in range(M)] for _ in range(N)]
+    weight = generate_value_grid(M, N)
 
-        # Ici D1,D2,F1,F2 sont des coordonnées d'intersections (coins nord-ouest)
-        dist, cmds = bfs(valid, N, M, D1, D2, start_dir, F1, F2)
+    obstacles = plne(M, N, P, weight)
 
-        if dist == -1:
-            print(-1)
-        else:
-            if cmds:
-                print(dist, *cmds)
-            else:
-                print(0)
-        f_res.write(str(dist) +" "+ " ".join(map(str,cmds)) + "\n")
+    for i in obstacles :
+        grid[i] = 1
+
+    si, sj = map(int, input("\n Position de départ (m n): ").split())
+    orientation = input("Orientation (nord/sud/est/ouest): ")
+    oi, oj = map(int, input("Position objectif (m n): ").split())
+    
+    valid = build_valid_positions(grid, M, N)
+    dist, act = bfs(valid, M, N, si, sj, orientation, oi, oj) 
+
+    print(f"{dist} {act}")
 
 def main():
-    grid = read_grid("grille_test")
-    exec(grid)
-
+    interface()
 
 if __name__ == "__main__":
     main()

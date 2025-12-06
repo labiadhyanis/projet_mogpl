@@ -108,10 +108,13 @@ def generate_grid(M, N, nb_obs):
             dir = random.randint(0, 3)
             ligne_fin = [x_rob, y_rob, x_obs, y_obs, INV_DIR_MAP[dir]]
             break
-
-    grid.append(ligne_fin)
-    grid.append([0,0])
-    return 
+        
+    final = []
+    final.append([M,N])
+    final.extend(grid)
+    final.append(ligne_fin)
+    final.append([0,0])
+    return final
 
 def read_grid(filename):
     grid = []
@@ -313,7 +316,7 @@ def test_temps_obstacle():
 
                 t0 = time.perf_counter()
 
-                valid = build_valid_positions(grid[:-2], 20, 20)
+                valid = build_valid_positions(grid[1:-2], 20, 20)
                 
                 D1, D2, F1, F2, orient_str = grid[-2]
                 start_dir = DIR_MAP[orient_str]
@@ -397,7 +400,7 @@ def interface():
     print(f"{dist} {act}")
 
 def main():
-    interface()
+    test_temps_taille()
 
 if __name__ == "__main__":
     main()

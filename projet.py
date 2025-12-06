@@ -83,7 +83,6 @@ def build_valid_positions(grid, M, N):
 
 def generate_grid(N, M, nb_obs):
     """Renvoie une grid sous forme liste de listes"""
-
     grid = [[0 for _ in range(M)] for _ in range(N)]
     obstacles = set()
 
@@ -111,6 +110,31 @@ def generate_grid(N, M, nb_obs):
     grid.append(ligne_fin)
     grid.append([0,0])
     return grid
+
+def read_grid(filename):
+    grid = []
+    with open(filename, "r") as f:
+        lines = [line.strip() for line in f.readlines() if line.strip()]
+
+    N, M = map(int, lines[0].split())
+    grid.append([N, M])
+
+    for i in range(1,M):
+        ligne = list(map(int, lines[i].split()))
+        grid.append(ligne)
+
+    data = lines[i+1].split()
+    D1 = int(data[0])
+    D2 = int(data[1])
+    F1 = int(data[2])
+    F2 = int(data[3])
+    orient = data[4]  
+    grid.append([D1, D2, F1, F2, orient])
+
+    grid.append([0,0])
+
+    return grid
+
 
 # =========================
 #  BFS sur l'espace d'états
@@ -219,8 +243,8 @@ def test_temps_taille():
 
                 t0 = time.perf_counter()
 
-                valid = build_valid_positions(grid, N, N)
-                D1, D2, F1, F2, orient_str = grid[-2] #Obtention des positions objectives et de départ
+                valid = build_valid_positions(grid[1:-2], N, N)
+                D1, D2, F1, F2, orient_str = grid[-2]
                 start_dir = DIR_MAP[orient_str]
                 long, act = bfs(valid, N, N, D1, D2, start_dir, F1, F2)
 
@@ -248,8 +272,9 @@ def test_temps_obstacle():
 
                 t0 = time.perf_counter()
 
-                valid = build_valid_positions(grid, 20, 20)
-                D1, D2, F1, F2, orient_str = grid[-2] # Obtention des positions objectives et de départ
+                valid = build_valid_positions(grid[:-2], 20, 20)
+                
+                D1, D2, F1, F2, orient_str = grid[-2]
                 start_dir = DIR_MAP[orient_str]
                 long, act = bfs(valid, 20, 20, D1, D2, start_dir, F1, F2)
 
@@ -260,41 +285,25 @@ def test_temps_obstacle():
             moyenne = sum(temps_exec) / len(temps_exec)
             f_temps.write(f"{N}\t{moyenne:.6f}\n")
 
-def exec(G):
-    data = G.strip().splitlines()
-    idx = 0
+def exec(grid, grid_file="grid.txt", res_file="res.txt"):
 
-    while idx < len(data):
-        line = data[idx].strip()
-        idx += 1
-        if not line:
-            continue
+    with open(grid_file, "w") as f_grid, open(res_file, "w") as f_res:
 
-        M, N = map(int, line.split())
-        if M == 0 and N == 0:
-            break
+        N, M  = grid[0]
 
-        grid = []
-        for _ in range(M):
-            row = list(map(int, data[idx].split()))
-            idx += 1
-            grid.append(row)
+        print(grid)
 
-        parts = data[idx].split()
-        idx += 1
-
-        D1 = int(parts[0])
-        D2 = int(parts[1])
-        F1 = int(parts[2])
-        F2 = int(parts[3])
-        orient_str = parts[4].lower()
+        for ligne in grid:
+            f_grid.write(" ".join(map(str, ligne)) + "\n")
+                
+        D1, D2, F1, F2, orient_str = grid[-2] # Obtention des positions objectifs et de départ
         start_dir = DIR_MAP[orient_str]
 
         # Construire les positions valides pour le centre du robot
-        valid = build_valid_positions(grid, M, N)
+        valid = build_valid_positions(grid[1:-2], N, M)
 
         # Ici D1,D2,F1,F2 sont des coordonnées d'intersections (coins nord-ouest)
-        dist, cmds = bfs(valid, M, N, D1, D2, start_dir, F1, F2)
+        dist, cmds = bfs(valid, N, M, D1, D2, start_dir, F1, F2)
 
         if dist == -1:
             print(-1)
@@ -303,51 +312,12 @@ def exec(G):
                 print(dist, *cmds)
             else:
                 print(0)
+        f_res.write(str(dist) +" "+ " ".join(map(str,cmds)) + "\n")
 
 def main():
-    data = sys.stdin.read().strip().splitlines()
-    idx = 0
-
-    while idx < len(data):
-        line = data[idx].strip()
-        idx += 1
-        if not line:
-            continue
-
-        M, N = map(int, line.split())
-        if M == 0 and N == 0:
-            break
-
-        grid = []
-        for _ in range(M):
-            row = list(map(int, data[idx].split()))
-            idx += 1
-            grid.append(row)
-
-        parts = data[idx].split()
-        idx += 1
-
-        D1 = int(parts[0])
-        D2 = int(parts[1])
-        F1 = int(parts[2])
-        F2 = int(parts[3])
-        orient_str = parts[4].lower()
-        start_dir = DIR_MAP[orient_str]
-
-        # Construire les positions valides pour le centre du robot
-        valid = build_valid_positions(grid, M, N)
-
-        # Ici D1,D2,F1,F2 sont des coordonnées d'intersections (coins nord-ouest)
-        dist, cmds = bfs(valid, M, N, D1, D2, start_dir, F1, F2)
-
-        if dist == -1:
-            print(-1)
-        else:
-            if cmds:
-                print(dist, *cmds)
-            else:
-                print(0)
+    grid = read_grid("grille_test")
+    exec(grid)
 
 
 if __name__ == "__main__":
-    test_temps_obstacle()
+    main()

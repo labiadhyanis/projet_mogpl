@@ -204,7 +204,7 @@ def bfs(valid, M, N, start_r, start_c, start_dir, goal_r, goal_c):
 
 def test_temps_taille():
     tailles = [10, 20, 30, 40, 50]
-    with open("grids.txt", "w") as f_grids, open("temps.txt", "w") as f_temps, open("res.txt", "w") as f_res:
+    with open("grids_taille.txt", "w") as f_grids, open("temps_taille.txt", "w") as f_temps, open("res_taille.txt", "w") as f_res:
 
         for N in tailles:
             nb_obstacles = N 
@@ -220,7 +220,7 @@ def test_temps_taille():
                 t0 = time.perf_counter()
 
                 valid = build_valid_positions(grid, N, N)
-                D1, D2, F1, F2, orient_str = grid[-2]
+                D1, D2, F1, F2, orient_str = grid[-2] #Obtention des positions objectives et de départ
                 start_dir = DIR_MAP[orient_str]
                 long, act = bfs(valid, N, N, D1, D2, start_dir, F1, F2)
 
@@ -229,9 +229,36 @@ def test_temps_taille():
                 temps_exec.append(t1 - t0)
 
             moyenne = sum(temps_exec) / len(temps_exec)
-            f_temps.write(f"N={N} -> temps moyen = {moyenne:.6f} sec\n")
+            f_temps.write(f"{N}\t{moyenne:.6f}\n")
                 
+def test_temps_obstacle():
+    obs = [10, 20, 30, 40, 50]
+    with open("grids_obstacle.txt", "w") as f_grids, open("temps_obstacle.txt", "w") as f_temps, open("res_obstacle.txt", "w") as f_res:
 
+        for N in obs:
+            nb_obstacles = N 
+            temps_exec = []
+
+            for _ in range(10):
+                grid = generate_grid(20, 20, nb_obstacles)
+
+                f_grids.write(f"{20} {20}\n") # 1ère ligne
+                for ligne in grid:
+                    f_grids.write(" ".join(map(str, ligne)) + "\n") #Ecrit chaque ligne de la grid
+
+                t0 = time.perf_counter()
+
+                valid = build_valid_positions(grid, 20, 20)
+                D1, D2, F1, F2, orient_str = grid[-2] # Obtention des positions objectives et de départ
+                start_dir = DIR_MAP[orient_str]
+                long, act = bfs(valid, 20, 20, D1, D2, start_dir, F1, F2)
+
+                t1 = time.perf_counter()
+                f_res.write(str(long) +" "+ " ".join(map(str,act)) + "\n")
+                temps_exec.append(t1 - t0)
+
+            moyenne = sum(temps_exec) / len(temps_exec)
+            f_temps.write(f"{N}\t{moyenne:.6f}\n")
 
 def exec(G):
     data = G.strip().splitlines()
@@ -323,4 +350,4 @@ def main():
 
 
 if __name__ == "__main__":
-    test_temps_taille()
+    test_temps_obstacle()

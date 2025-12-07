@@ -388,7 +388,7 @@ def interface():
     obstacles = plne(M, N, P, weight)
 
     for i in obstacles :
-        grid[i] = 1
+        grid[i[0]][i[1]] = 1
 
     si, sj = map(int, input("\n Position de départ (m n): ").split())
     orientation = input("Orientation (nord/sud/est/ouest): ")
@@ -400,7 +400,7 @@ def interface():
     print(f"{dist} {act}")
 
 def main():
-    test_temps_taille()
+    interface()
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,6 @@ from collections import deque
 import sys
 import random
 import time
-from gurobipy import Model, GRB
 import gurobipy as gp
 
 # Encodage des orientations
@@ -235,7 +234,7 @@ def exec(grid, grid_file="grid.txt", res_file="res.txt"):
     """
     with open(grid_file, "w") as f_grid, open(res_file, "w") as f_res:
 
-        M, N  = grid[0]
+        N, M  = grid[0]
 
         print(grid)
 
@@ -344,13 +343,13 @@ def plne(M, N, P, grid):
     Programme linéaire permettant d'attribuer P obstacles de manière a minimiser la somme des poids,
     en respectant les contraintes données.
     """
-    m = Model()
+    m = gp.Model()
     x = {}
     
     #Création des variables binaires
     for i in range(N):
         for j in range(M):
-            x[i,j] = m.addVar(vtype=GRB.BINARY)
+            x[i,j] = m.addVar(vtype=gp.GRB.BINARY)
     #Contrainte sur le nb d'obstacles dans une colonne
     for i in range(N):
         m.addConstr(gp.quicksum(x[i,j] for j in range(M)) <= (2*P)/M)
@@ -358,22 +357,24 @@ def plne(M, N, P, grid):
     for j in range(M) :
         m.addConstr(gp.quicksum(x[i,j] for i in range(N)) <= (2*P)/N)
     #Contrainte 101 dans les lignes
-    for i in range(N):
-        for j in range(M-2):
-            m.addConstr(x[i,j] + x[i,j+2] <= 1 + x[i,j+1])
+    if M >= 3:
+        for i in range(N):
+            for j in range(M-2):
+                m.addConstr(x[i,j] + x[i,j+2] <= 1 + x[i,j+1])
     #Contrainte 101 dans les colonnes
-    for j in range(M):
-        for i in range(N-2):
-            m.addConstr(x[i,j] + x[i+2,j] <= 1 + x[i+1,j])
+    if N >= 3:
+        for j in range(M):
+            for i in range(N-2):
+                m.addConstr(x[i,j] + x[i+2,j] <= 1 + x[i+1,j])
     # Contrainte finale, il faut p obstacles et on met l'objectif de minimization
     m.addConstr(gp.quicksum(x[i,j] for i in range(N) for j in range(M)) == P)
-    m.setObjective(gp.quicksum(grid[i][j] * x[i,j] for i in range(N) for j in range(M)))
+    m.setObjective(gp.quicksum(grid[i][j] * x[i,j] for i in range(N) for j in range(M)), gp.GRB.MINIMIZE)
 
     m.optimize()
     
-    return x
+    return [(i, j) for (i, j), var in x.items() if var.X > 0.5]
 
-def interface():
+def interfacePLNE():
     """
     Interface permettant à l'utilisateur de fournir les données pour une instance,
     laissant le programme linéaire placer les obstacles.
@@ -386,21 +387,43 @@ def interface():
     weight = generate_value_grid(M, N)
 
     obstacles = plne(M, N, P, weight)
-
+    print(f"Position des obstacles :\n{obstacles}")
     for i in obstacles :
         grid[i[0]][i[1]] = 1
-
-    si, sj = map(int, input("\n Position de départ (m n): ").split())
-    orientation = input("Orientation (nord/sud/est/ouest): ")
-    oi, oj = map(int, input("Position objectif (m n): ").split())
+    while True :
+        si, sj = map(int, input("\n Position de départ (m n): ").split())
+        if (si,sj) in obstacles :
+            print("Cette position est dans un obstacle. Choisissez à nouveau \n")
+        else : 
+            break
+    while True :
+        orientation = input("Orientation (nord/sud/est/ouest): ")
+        if orientation not in ["sud", "nord", "est", "ouest"] :
+            print("Cette orientation n'est pas bonne")
+        else : 
+            break
+    while True :
+        oi, oj = map(int, input("Position objectif (m n): ").split())
+        if (oi,oj) in obstacles :
+            print("Cette position est dans un obstacle. Choisissez à nouveau \n")
+        else : 
+            break
     
     valid = build_valid_positions(grid, M, N)
     dist, act = bfs(valid, M, N, si, sj, orientation, oi, oj) 
 
     print(f"{dist} {act}")
 
+def interfaceExec():
+    name = input("Nom du fichier contenant l'instance : ")
+    exec(read_grid(name))
+    
 def main():
-    interface()
+    Choix = int(input("1 - Execution depuis une instance dans un fichier\n2 - Utilisation du PLNE \n"))
+    if Choix == 2 :
+        interfacePLNE()
+    if Choix == 1 :
+        interfaceExec()
 
 if __name__ == "__main__":
     main()

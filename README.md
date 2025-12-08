@@ -24,13 +24,17 @@ Le fichier projet.py contient :
    une grille avec contraintes (question e) :
    plne()
 
-5. Une interface utilisateur complète permettant :
+5. Une interface utilisateur permettant :
    - de générer une grille via le PLNE
    - d’entrer un point de départ, une orientation, un objectif
    - de calculer la trajectoire optimale via BFS
-   interface()
+   interfacePLNE()
 
-6. Un main() lançant l’interface quand le fichier est exécuté directement.
+6. Une interface utilisateur permettant :
+   - L'éxécution de l'algorithme BFS sur un fichier entrée par l'utilisateur
+   interfaceExec()
+   
+7. Un main() laissant à l'utilisateur le choix d'une interface.
 
 
 PRÉREQUIS
@@ -53,12 +57,17 @@ UTILISATION
 
 1. Exécuter une instance contenue dans un fichier :
    
-   python3 projet.py < grille.txt
+   python3 projet.py
+
+   Entrer 1 au premier choix
+   puis entrer :
+       - Nom du fichier contenant l'instance 
 
 2. Utiliser l’interface pour générer une grille optimisée par PLNE :
 
    python3 projet.py
 
+   Entrer 2 au premier choix
    puis entrer :
        - Nombre de lignes
        - Nombre de colonnes
@@ -86,8 +95,8 @@ FORMAT DES ENTRÉES / SORTIES
 ----------------------------
 
 • Une grille est donnée sous le format :
-    M N
-    M lignes de N valeurs (0 = libre, 1 = obstacle)
+    N M
+    N lignes de M valeurs (0 = libre, 1 = obstacle)
     D1 D2 F1 F2 orientation
     0 0   (fin)
 

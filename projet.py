@@ -3,6 +3,7 @@ import sys
 import random
 import time
 import gurobipy as gp
+import math
 
 # Encodage des orientations
 # 0 = nord, 1 = est, 2 = sud, 3 = ouest
@@ -352,10 +353,10 @@ def plne(M, N, P, grid):
             x[i,j] = m.addVar(vtype=gp.GRB.BINARY)
     #Contrainte sur le nb d'obstacles dans une colonne
     for i in range(N):
-        m.addConstr(gp.quicksum(x[i,j] for j in range(M)) <= (2*P)/M)
+        m.addConstr(gp.quicksum(x[i,j] for j in range(M)) <= math.ceil((2*P)/M))
     #Contrainte sur le nb d'obstacles dans une ligne
     for j in range(M) :
-        m.addConstr(gp.quicksum(x[i,j] for i in range(N)) <= (2*P)/N)
+        m.addConstr(gp.quicksum(x[i,j] for i in range(N)) <= math.ceil((2*P)/N))
     #Contrainte 101 dans les lignes
     if M >= 3:
         for i in range(N):
